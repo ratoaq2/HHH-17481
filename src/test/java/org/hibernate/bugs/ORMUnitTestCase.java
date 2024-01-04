@@ -17,14 +17,13 @@ package org.hibernate.bugs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
-
 import org.hibernate.FlushMode;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.jpa.HibernateHints;
+import org.hibernate.query.Query;
 import org.hibernate.testing.junit4.BaseCoreFunctionalTestCase;
 import org.junit.Test;
 
@@ -43,7 +42,7 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 	// Add your entities here.
 	@Override
 	protected Class<?>[] getAnnotatedClasses() {
-		return new Class<?>[] { EntityA.class, EntityB.class };
+		return new Class<?>[] { EntityA.class, EntityAOne.class, EntityATwo.class, EntityB.class };
 	}
 
 	// Add in any settings that are specific to your test. See
@@ -62,37 +61,25 @@ public class ORMUnitTestCase extends BaseCoreFunctionalTestCase {
 	// Add your tests, using standard JUnit.
 	@Test
 	public void hhh16575Test() throws Exception {
-		Integer currentBId;
 		try (Session s = openSession()) {
 			Transaction tx = s.beginTransaction();
-			EntityA entityA1 = new EntityA();
-			EntityB entityB1 = new EntityB();
+			EntityB entityB = new EntityB();
+			EntityATwo entityA = new EntityATwo();
 
-			entityB1.entityA = entityA1;
-			entityA1.currentEntityB = entityB1;
+			entityA.entityB = entityB;
+			entityB.entities.add(entityA);
 
-			s.persist(entityA1);
-			s.persist(entityB1);
-			s.flush();
+			s.persist(entityB);
+			s.persist(entityA);
 
-			entityA1.foo = 123;
-			EntityB entityB2 = new EntityB();
-			entityB2.entityA = entityA1;
-			entityA1.currentEntityB = entityB2;
-			s.persist(entityB2);
-			currentBId = entityB2.id;
-
-			List<EntityA> entitiesA = s.createQuery("select a from EntityA a", EntityA.class).getResultList();
-			assertThat(entitiesA).hasSize(1);
 			tx.commit();
 		}
 
 		try (Session s = openSession()) {
-			List<EntityA> entitiesA = s.createQuery("select a from EntityA a", EntityA.class).getResultList();
+			Query<EntityB> query = s.createQuery("select e from EntityB e", EntityB.class);
+			EntityB entityB = query.getSingleResult();
 
-			assertThat(entitiesA).hasSize(1);
-			assertThat(entitiesA.get(0).foo).isEqualTo(123);
-			assertThat(entitiesA.get(0).currentEntityB.id).isEqualTo(currentBId);
+			assertThat(entityB.entities).hasSize(1);
 		}
 	}
 }
